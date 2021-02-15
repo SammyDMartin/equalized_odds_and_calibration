@@ -137,8 +137,8 @@ class Model(namedtuple('Model', 'pred label')):
         ])
 
 
-def tradeoff(fn_rate,fp_rate,property,use_test,dataset):
-    data_filename = "equalized_odds_and_calibration\data\{}.csv".format(dataset)
+def tradeoff(fn_rate,fp_rate,property,dataset,use_test = True):
+    data_filename = "data\{}.csv".format(dataset)
     test_and_val_data = pd.read_csv(data_filename)
 
     # Randomly split the data into two sets - one for computing the fairness constants
@@ -160,7 +160,6 @@ def tradeoff(fn_rate,fp_rate,property,use_test,dataset):
     group_1_test_model = Model(group_1_test_data['prediction'].to_numpy(), group_1_test_data['label'].to_numpy())
 
     # Find mixing rates for equalized odds models
-    _, _, mix_rates = Model.calib_eq_odds(group_0_val_model, group_1_val_model, fp_rate, fn_rate)
 
     #print(fp_rate,fn_rate)
     #print(group_0_val_model)
@@ -176,11 +175,14 @@ def tradeoff(fn_rate,fp_rate,property,use_test,dataset):
     """
     #group_0_acc = calib_eq_odds_group_0_test_model.accuracy()
     #group_1_acc = calib_eq_odds_group_1_test_model.accuracy()
+    
 
     if use_test is False:
+        #note that Validation accuracy does NOT depend on fp_rate,fn_rate - this is only useful for finding out how accurate the model is by default
         group_0_acc = getattr(group_0_val_model,property)()
         group_1_acc = getattr(group_1_val_model,property)()
     elif use_test is True:
+        _, _, mix_rates = Model.calib_eq_odds(group_0_val_model, group_1_val_model, fp_rate, fn_rate)
         calib_eq_odds_group_0_test_model, calib_eq_odds_group_1_test_model = Model.calib_eq_odds(group_0_test_model,
                                                                                             group_1_test_model,
                                                                                             fp_rate, fn_rate,
@@ -198,7 +200,7 @@ def plot_constraint(result,ax,title):
     im = ax.imshow(result,extent=[minv,maxv,minv,maxv])
     return im
 
-def constraintplot(result,step,usetest,dataset,redos):
+def constraintplot(result,step,dataset,redos,usetest=True):
     x,y = np.linspace(minv,maxv,step),np.linspace(minv,maxv,step)
 
     if usetest == True:
@@ -216,7 +218,7 @@ def constraintplot(result,step,usetest,dataset,redos):
         for idx,fn in enumerate(x):
             g0,g1 = [],[]
             for redo in range(redos):
-                group_0,group_1 = tradeoff(fn,fp,result,usetest,dataset)
+                group_0,group_1 = tradeoff(fn,fp,result,dataset,usetest)
                 g0.append(group_0)
                 g1.append(group_1)
                 pbar.update(1)
@@ -253,13 +255,26 @@ if __name__ == '__main__':
     maxv = 0.99
     #Note that setting either value to 0 leads to confusing results as special cases are invoked in original code
 
-    sample_number = 200 #number of samples to take
-    repeats = 1 #repeats per 
-    csv_name = ''
+    sample_number = 100 #number of samples to take
+    repeats = 1 #repeats per value for cost function
+    csv_name = 'criminal_recidivism'
 
-    constraints = ["accuracy", "precision", "fpr", "fnr","base_rate"]
-    constraints = ["accuracy"]
+    #constraints = ["accuracy", "precision", "fpr", "fnr","base_rate"]
+    constraints = ["accuracy","base_rate"]
 
-    for usetest in [True]:
-        for constraint in constraints:
-            constraintplot(constraint,sample_number,usetest,csv_name,repeats)
+    for c in constraints:
+        result0 = []
+        result1 = []
+        for count in tqdm(range(100)):
+            r_0,r_1 = tradeoff(None,None,c,csv_name,use_test=False)
+            result0.append(r_0)
+            result1.append(r_1)
+        
+        result0 = round(np.mean(result0),3)
+        result1 = round(np.mean(result1),3)
+
+        print("Group 0 Validation set mean {}: {}".format(c,result0))
+        print("Group 1 Validation set mean {}: {}".format(c,result1))
+
+    for constraint in constraints:
+        constraintplot(constraint,sample_number,csv_name,repeats)
