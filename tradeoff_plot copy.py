@@ -162,6 +162,10 @@ def tradeoff(fn_rate,fp_rate,property,dataset,use_test = True):
     group_0_test_model = Model(group_0_test_data['prediction'].to_numpy(), group_0_test_data['label'].to_numpy())
     group_1_test_model = Model(group_1_test_data['prediction'].to_numpy(), group_1_test_data['label'].to_numpy())
 
+    g0_size = float(group_0_test_data['prediction'].to_numpy().size)
+    g1_size = float(group_1_test_data['prediction'].to_numpy().size)
+    total = g0_size+g1_size
+
     # Find mixing rates for equalized odds models
 
     #print(fp_rate,fn_rate)
@@ -193,11 +197,11 @@ def tradeoff(fn_rate,fp_rate,property,dataset,use_test = True):
         group_0_acc = getattr(calib_eq_odds_group_0_test_model,property)()
         group_1_acc = getattr(calib_eq_odds_group_1_test_model,property)()
 
-    return group_0_acc, group_1_acc
+    return group_0_acc*(g0_size/total), group_1_acc*(g1_size/total)
 
 def plot_constraint(result,ax,title):
-    ax.set_xlabel("fn cost")
-    ax.set_ylabel("fp cost")
+    ax.set_xlabel("fn_rate")
+    ax.set_ylabel("fp_rate")
     ax.set_title(title)
 
     im = ax.imshow(result,extent=[minv,maxv,minv,maxv])
@@ -222,32 +226,32 @@ def constraintplot(result,step,dataset,redos,usetest=True):
             g0,g1 = [],[]
             for redo in range(redos):
                 group_0,group_1 = tradeoff(fn,fp,result,dataset,usetest)
-                g0.append(group_0)
-                g1.append(group_1)
+                res = group_0+group_1
+                g0.append(res)
+                #g1.append(group_1)
                 pbar.update(1)
             #print(fn,fp)
             #print([round(g,3) for g in g0])
             #print([round(g,3) for g in g1])
             #print(np.mean(g0),np.std(g0))
             result0[idx,idy] = float(np.mean(g0))
-            result1[idx,idy] = float(np.mean(g1))
+            #result1[idx,idy] = float(np.mean(g1))
             #print(group_0,idx,idy,fn,fp)
 
-    fig,(ax1,ax2) = plt.subplots(nrows=2,ncols=1,figsize=(15,15))
+    fig,(ax1) = plt.subplots(nrows=1,ncols=1,figsize=(15,15))
 
     fig.tight_layout()
 
 
     im1 = plot_constraint(result0,ax1,titl+"_0")
-    im2 = plot_constraint(result1,ax2,titl+ "_1")
+    #im2 = plot_constraint(result1,ax2,titl+ "_1")
 
     fig.tight_layout()
 
+    fig.colorbar(im1,label=titl)
+    #fig.colorbar(im2,label=titl+"_1")
 
-    fig.colorbar(im1,label=titl+"_0")
-    fig.colorbar(im2,label=titl+"_1")
-
-    savestr = str(titl)+str(step)+"_"+str(redos) +".png"
+    savestr = str('unif')+str(titl)+str(step)+"_"+str(redos) +".png"
 
     plt.savefig(savestr)
 
