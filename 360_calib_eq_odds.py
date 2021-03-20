@@ -20,6 +20,9 @@ import matplotlib.pyplot as plt
 from variable_cep import CalibratedEqOddsPostprocessing #modified for varying weight
 from variable_cep import normed_rates
 from tqdm import tqdm
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import roc_curve
 
 ## import dataset
 dataset_used = "compas" # "adult", "german", "compas"
@@ -60,44 +63,11 @@ elif dataset_used == "compas":
 #random seed for calibrated equal odds prediction
 randseed = 12345679 
 
-
+#train validation/test split
 dataset_orig_train, dataset_orig_vt = dataset_orig.split([0.6], shuffle=True)
+#redo this on rerun
 dataset_orig_valid, dataset_orig_test = dataset_orig_vt.split([0.5], shuffle=True)
 
-# print out some labels, names, etc.
-display(Markdown("#### Dataset shape"))
-print(dataset_orig_train.features.shape)
-display(Markdown("#### Favorable and unfavorable labels"))
-print(dataset_orig_train.favorable_label, dataset_orig_train.unfavorable_label)
-display(Markdown("#### Protected attribute names"))
-print(dataset_orig_train.protected_attribute_names)
-display(Markdown("#### Privileged and unprivileged protected attribute values"))
-print(dataset_orig_train.privileged_protected_attributes, dataset_orig_train.unprivileged_protected_attributes)
-display(Markdown("#### Dataset feature names"))
-print(dataset_orig_train.feature_names)
-
-
-metric_orig_train = BinaryLabelDatasetMetric(dataset_orig_train, 
-                             unprivileged_groups=unprivileged_groups,
-                             privileged_groups=privileged_groups)
-display(Markdown("#### Original training dataset"))
-print("Difference in mean outcomes between unprivileged and privileged groups = %f" % metric_orig_train.mean_difference())
-
-metric_orig_valid = BinaryLabelDatasetMetric(dataset_orig_valid, 
-                             unprivileged_groups=unprivileged_groups,
-                             privileged_groups=privileged_groups)
-display(Markdown("#### Original validation dataset"))
-print("Difference in mean outcomes between unprivileged and privileged groups = %f" % metric_orig_valid.mean_difference())
-
-metric_orig_test = BinaryLabelDatasetMetric(dataset_orig_test, 
-                             unprivileged_groups=unprivileged_groups,
-                             privileged_groups=privileged_groups)
-display(Markdown("#### Original test dataset"))
-print("Difference in mean outcomes between unprivileged and privileged groups = %f" % metric_orig_test.mean_difference())
-
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import roc_curve
 
 # Placeholder for predicted and transformed datasets
 dataset_orig_train_pred = dataset_orig_train.copy(deepcopy=True)
@@ -111,7 +81,7 @@ dataset_new_test_pred = dataset_orig_test.copy(deepcopy=True)
 scale_orig = StandardScaler()
 X_train = scale_orig.fit_transform(dataset_orig_train.features)
 y_train = dataset_orig_train.labels.ravel()
-lmod = LogisticRegression()
+lmod = LogisticRegression() #logregression
 lmod.fit(X_train, y_train)
 
 fav_idx = np.where(lmod.classes_ == dataset_orig_train.favorable_label)[0][0]
@@ -145,42 +115,8 @@ y_test_pred[~(y_test_pred_prob >= class_thresh)] = dataset_orig_test_pred.unfavo
 dataset_orig_test_pred.labels = y_test_pred
 
 
-"""
-cm_pred_train = ClassificationMetric(dataset_orig_train, dataset_orig_train_pred,
-                             unprivileged_groups=unprivileged_groups,
-                             privileged_groups=privileged_groups)
-display(Markdown("#### Original-Predicted training dataset"))
-print("Difference in GFPR between unprivileged and privileged groups")
-print(cm_pred_train.difference(cm_pred_train.generalized_false_positive_rate))
-print("Difference in GFNR between unprivileged and privileged groups")
-print(cm_pred_train.difference(cm_pred_train.generalized_false_negative_rate))
-
-cm_pred_valid = ClassificationMetric(dataset_orig_valid, dataset_orig_valid_pred,
-                             unprivileged_groups=unprivileged_groups,
-                             privileged_groups=privileged_groups)
-display(Markdown("#### Original-Predicted validation dataset"))
-print("Difference in GFPR between unprivileged and privileged groups")
-print(cm_pred_valid.difference(cm_pred_valid.generalized_false_positive_rate))
-print("Difference in GFNR between unprivileged and privileged groups")
-print(cm_pred_valid.difference(cm_pred_valid.generalized_false_negative_rate))
-
-cm_pred_test = ClassificationMetric(dataset_orig_test, dataset_orig_test_pred,
-                             unprivileged_groups=unprivileged_groups,
-                             privileged_groups=privileged_groups)
-display(Markdown("#### Original-Predicted testing dataset"))
-print("Difference in GFPR between unprivileged and privileged groups")
-print(cm_pred_test.difference(cm_pred_test.generalized_false_positive_rate))
-print("Difference in GFNR between unprivileged and privileged groups")
-print(cm_pred_test.difference(cm_pred_test.generalized_false_negative_rate))
-"""
-
 
 # Odds equalizing post-processing algorithm
-
-
-##########
-
-
 
 ##########
 
@@ -257,8 +193,8 @@ normp,normn = [],[]
 
 N=20
 pbar = tqdm(total=N**2)
-for positive_val in np.linspace(0.0,20.0,N):
-    for negative_val in np.linspace(0.0,20.0,N):
+for positive_val in np.linspace(0.0,1.0,N):
+    for negative_val in np.linspace(0.0,1.0,N):
 
         NP = (negative_val,positive_val)
 
