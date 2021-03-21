@@ -8,7 +8,6 @@ from aif360.datasets import AdultDataset, GermanDataset, CompasDataset
 from aif360.metrics import BinaryLabelDatasetMetric
 from aif360.metrics import ClassificationMetric
 from aif360.metrics.utils import compute_boolean_conditioning_vector
-
 from aif360.algorithms.preprocessing.optim_preproc_helpers.data_preproc_functions\
                 import load_preproc_data_adult, load_preproc_data_compas
 
@@ -28,6 +27,7 @@ from sklearn.metrics import roc_curve
 dataset_used = "compas" # "adult", "german", "compas"
 protected_attribute_used = 2 # 1, 2
 
+# code to identify the protected attributes from all of the dataset features
 if dataset_used == "adult":
     dataset_orig = AdultDataset()
 #     dataset_orig = load_preproc_data_adult()
@@ -57,15 +57,11 @@ elif dataset_used == "compas":
         privileged_groups = [{'race': 1}]
         unprivileged_groups = [{'race': 0}]  
   
-# cost constraint of fnr will optimize generalized false negative rates, that of
-# fpr will optimize generalized false positive rates, and weighted will optimize
-# a weighted combination of both
 #random seed for calibrated equal odds prediction
 randseed = 12345679 
 
 #train validation/test split
 dataset_orig_train, dataset_orig_vt = dataset_orig.split([0.6], shuffle=True)
-#redo this on rerun
 
 # Placeholder for predicted and transformed datasets
 dataset_orig_train_pred = dataset_orig_train.copy(deepcopy=True)
@@ -80,7 +76,7 @@ lmod.fit(X_train, y_train)
 fav_idx = np.where(lmod.classes_ == dataset_orig_train.favorable_label)[0][0]
 y_train_pred_prob = lmod.predict_proba(X_train)[:,fav_idx]
 
-# Prediction probs for validation and testing data
+# Prediction probs for training data
 
 class_thresh = 0.5
 dataset_orig_train_pred.scores = y_train_pred_prob.reshape(-1,1)
@@ -93,7 +89,10 @@ dataset_orig_train_pred.labels = y_train_pred
 
 
 
-
+#
+#
+#
+# set up tradeoff cost-benefit calculation
 include = False
 N_reps = 50
 N_values = 500
@@ -134,12 +133,12 @@ for neg in n_range:
     for repeat in range(N_reps):
 
         if (N_reps == 1) and (split == True):
-            #If there's only 1 repeat then we use the same validation/test split
+            #If there's only 1 repeat then we use the same validation/test split for each
             pass
         else:
             ##########
 
-            # New Validation/test set reshuffle and prediction
+            # New Validation/test set reshuffle and prediction for each
 
             dataset_orig_valid, dataset_orig_test = dataset_orig_vt.split([0.5], shuffle=True)#validation_test split
             dataset_orig_valid_pred = dataset_orig_valid.copy(deepcopy=True)
@@ -205,6 +204,8 @@ for neg in n_range:
 
 collapse = lambda param, idx : [v[idx] for v in param]
 
+getnames = {None:"full data", True:"privileged", False:"unprivileged"}
+
 for idx,PR in enumerate(privileged_options):
     plt.figure()
     plt.plot(negs,collapse(accs,idx),label='accuracy')
@@ -213,10 +214,10 @@ for idx,PR in enumerate(privileged_options):
     plt.xlabel('unnormalized fn rate cost')
 
     plt.legend()
-    plt.savefig('compas1d {}.png'.format(PR))
+    plt.savefig('compas1d {}.png'.format(getnames[PR]))
 
     plt.figure()
     plt.plot(negs,collapse(accs,idx),label='accuracy')
     plt.xlabel('unnormalized fn rate cost')
     plt.legend()
-    plt.savefig('compas1d_acc {}.png'.format(PR))
+    plt.savefig('compas1d_acc {}.png'.format(getnames[PR]))

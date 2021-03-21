@@ -88,6 +88,10 @@ class CalibratedEqOddsPostprocessing(Transformer):
         self.base_rate_priv = 0.0
         self.base_rate_unpriv = 0.0
 
+    def set_NP(self, NP_rate):
+        self.fn_rate = NP_rate[0]
+        self.fp_rate = NP_rate[1]
+
     def fit(self, dataset_true, dataset_pred):
         """Compute parameters for equalizing generalized odds using true and
         predicted scores, while preserving calibration.
